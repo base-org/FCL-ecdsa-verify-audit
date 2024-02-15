@@ -1,58 +1,58 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test, console, console2} from "forge-std/Test.sol";
 import {FCL_ecdsa_utils} from "FreshCryptoLib/FCL_ecdsa_utils.sol";
 import {FCL} from "../src/FCL.sol";
 
 contract FCLTest is Test {
     function setUp() public {}
 
-        function test_basecasesFC_nModInv() public {
-           // array of base cases
-           uint[] memory basecases = new uint[](8);
-           uint[] memory results = new uint[](8);
-           for (uint i = 0; i < 4; i++) {
-               basecases[i] = i;
-               results[i] = 1;
-           }
-           for (uint i = 0; i < 4; i++) {
-               basecases[7 - i] = FCL.n - i;
-               results[i + 4] = 1;
-           }
-           // 0 and N are not invertible
-           results[0] = 0;
-           results[7] = 0;
+    function test_basecasesFC_nModInv() public {
+        // array of base cases
+        uint256[] memory basecases = new uint256[](8);
+        uint256[] memory results = new uint256[](8);
+        for (uint256 i = 0; i < 4; i++) {
+            basecases[i] = i;
+            results[i] = 1;
+        }
+        for (uint256 i = 0; i < 4; i++) {
+            basecases[7 - i] = FCL.n - i;
+            results[i + 4] = 1;
+        }
+        // 0 and N are not invertible
+        results[0] = 0;
+        results[7] = 0;
 
-           for (uint i = 0; i < 8; i++) {
-               uint inv = FCL.FCL_nModInv(basecases[i]);
-               uint mul = mulmod(basecases[i], inv, FCL.n);
-               assertEq(mul, results[i]);
-           }
-       }
+        for (uint256 i = 0; i < 8; i++) {
+            uint256 inv = FCL.FCL_nModInv(basecases[i]);
+            uint256 mul = mulmod(basecases[i], inv, FCL.n);
+            assertEq(mul, results[i]);
+        }
+    }
 
-       function test_basecasesFC_pModInv() public {
-           // array of base cases
-           uint[] memory basecases = new uint[](8);
-           uint[] memory results = new uint[](8);
-           for (uint i = 0; i < 4; i++) {
-               basecases[i] = i;
-               results[i] = 1;
-           }
-           for (uint i = 0; i < 4; i++) {
-               basecases[7 - i] = FCL.p - i;
-               results[i + 4] = 1;
-           }
-           // 0 and N are not invertible
-           results[0] = 0;
-           results[7] = 0;
+    function test_basecasesFC_pModInv() public {
+        // array of base cases
+        uint256[] memory basecases = new uint256[](8);
+        uint256[] memory results = new uint256[](8);
+        for (uint256 i = 0; i < 4; i++) {
+            basecases[i] = i;
+            results[i] = 1;
+        }
+        for (uint256 i = 0; i < 4; i++) {
+            basecases[7 - i] = FCL.p - i;
+            results[i + 4] = 1;
+        }
+        // 0 and N are not invertible
+        results[0] = 0;
+        results[7] = 0;
 
-           for (uint i = 0; i < 8; i++) {
-               uint inv = FCL.FCL_pModInv(basecases[i]);
-               uint mul = mulmod(basecases[i], inv, FCL.p);
-               assertEq(mul, results[i]);
-           }
-       }
+        for (uint256 i = 0; i < 8; i++) {
+            uint256 inv = FCL.FCL_pModInv(basecases[i]);
+            uint256 mul = mulmod(basecases[i], inv, FCL.p);
+            assertEq(mul, results[i]);
+        }
+    }
 
     function test_fuzzFC_nModInv(uint256 u) public {
         u = u % FCL.n;
@@ -76,12 +76,9 @@ contract FCLTest is Test {
         }
     }
 
-    function test_DBL_Add(uint256 x_, uint256 z) public {
-        vm.assume(z > 0);
-        // test assumption x cannot be 0
-        vm.assume(x_ > 0);
-        (uint256 x, uint256 y) = _validXY(x_);
-        assert(FCL.ecAff_isOnCurve(x, y));
+    function test_DBL_Add(uint256 pk, uint256 z) public {
+        vm.assume(z > 0 && pk > 0);
+        (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(pk);
         (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
         (uint256 p0, uint256 p1, uint256 p2, uint256 p3) = FCL.ecZZ_Dbl(xPrime, yPrime, zz, zzz);
         (uint256 p0_2, uint256 p1_2, uint256 p2_2, uint256 p3_2) = FCL.ecZZ_AddN(xPrime, yPrime, zz, zzz, x, y);
@@ -96,23 +93,49 @@ contract FCLTest is Test {
     //     uint y = y_ % FCL.p;
     //     uint yy = mulmod(y, y, FCL.p);
     //     FixedPointMathLib.powWad(int256(yy), int256((FCL.p + 1) / 2));
-    //     // uint yPrime = yy ** ((FCL.p + 1) / 2) % FCL.p; 
+    //     // uint yPrime = yy ** ((FCL.p + 1) / 2) % FCL.p;
 
     //     // assertEq(y, yPrime);
     // }
 
-    function test() public {
-        (uint x, uint y) = _validXY(1);
-        console.log(x);
-        console.log(y);
+    function test_values() public {
+        // choose (x1, y1)
+        (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(1);
+        console2.log("x", x);
+        console2.log("y", y);
+        // convert it to (x’1, y’1, zz, zzz)
+        (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, 1);
+        console2.log("xPrime", xPrime);
+        console2.log("yPrime", yPrime);
+        console2.log("zz", zz);
+        console2.log("zzz", zzz);
+        // and double it
+        (uint256 p0, uint256 p1, uint256 p2, uint256 p3) = FCL.ecZZ_Dbl(xPrime, yPrime, zz, zzz);
+        // call the affine#Add Go function with (x1, y1) and (x1, y1)
+        (uint256 go_x, uint256 go_y) = _ecdsaAdd(x, y);
+        // convert its output to projective
+        (uint256 go_xPrime, uint256 go_yPrime, uint256 go_zz, uint256 go_zzz) = _convertXY(go_x, go_y, 1);
+        // then compare that the two are the same
+        console2.log("p0", p0);
+        console2.log("p0_2", go_xPrime);
+        console2.log("p1", p1);
+        console2.log("p1_2", go_yPrime);
+        console2.log("p2", p2);
+        console2.log("p2_2", go_zz);
+        console2.log("p3", p3);
+        console2.log("p3_2", go_zzz);
+        assertEq(p0, go_xPrime);
+        assertEq(p1, go_yPrime);
+        assertEq(p2, go_zz);
+        assertEq(p3, go_zzz);
     }
 
     function _validXY(uint256 x_) internal returns (uint256 x, uint256 y) {
         while (true) {
             x = x_ % FCL.p;
             uint256 yy = addmod(mulmod(mulmod(x, x, FCL.p), x, FCL.p), mulmod(x, FCL.a, FCL.p), FCL.p); // x^3+ax
-            uint exp = (FCL.p - 1) / 2;
-            uint jacobiSymb = _power(yy, exp, FCL.p);
+            uint256 exp = (FCL.p - 1) / 2;
+            uint256 jacobiSymb = _power(yy, exp, FCL.p);
             if (jacobiSymb != 1) {
                 x_ = x_ + 1;
                 continue;
@@ -122,9 +145,26 @@ contract FCLTest is Test {
         }
     }
 
-    function _power(uint a, uint b, uint p) pure internal returns (uint) {
-        uint x = a;
-        uint t = 1;
+    function test_add() public {
+        (uint256 x, uint256 y) = _ecdsaAdd(
+            48439561293906451759052585252797914202762949526041747995844080717082404635286,
+            36134250956749795798585127919587881956611106672985015071877198253568414405109
+        );
+        console2.log(x);
+        console2.log(y);
+    }
+
+    function _ecdsaAdd(uint256 x, uint256 y) internal returns (uint256, uint256) {
+        string[] memory inputs = new string[](3);
+        inputs[0] = "test/../go/double/double";
+        inputs[1] = vm.toString(x);
+        inputs[2] = vm.toString(y);
+        return abi.decode(vm.ffi(inputs), (uint256, uint256));
+    }
+
+    function _power(uint256 a, uint256 b, uint256 p) internal pure returns (uint256) {
+        uint256 x = a;
+        uint256 t = 1;
         while (b > 0) {
             if (b % 2 == 1) {
                 t = mulmod(t, x, p);
@@ -136,10 +176,10 @@ contract FCLTest is Test {
         return t;
     }
 
-    function _squareRoot(uint a) internal returns (uint) {
+    function _squareRoot(uint256 a) internal returns (uint256) {
         assertEq(FCL.p % 4, 3); // p = 3 mod 4 -> therefore we can do p+1/4
-        uint exp = (FCL.p + 1) / 4;
-        uint x = _power(a, exp, FCL.p);
+        uint256 exp = (FCL.p + 1) / 4;
+        uint256 x = _power(a, exp, FCL.p);
         return x;
     }
 
@@ -150,9 +190,7 @@ contract FCLTest is Test {
     {
         zz = mulmod(z, z, FCL.p);
         zzz = mulmod(zz, z, FCL.p);
-        uint256 zzInv = FCL.FCL_pModInv(zz);
-        uint256 zzzInv = FCL.FCL_pModInv(zzz);
-        xPrime = mulmod(x, zzInv, FCL.p);
-        yPrime = mulmod(y, zzzInv, FCL.p);
+        xPrime = mulmod(x, zz, FCL.p);
+        yPrime = mulmod(y, zzz, FCL.p);
     }
 }

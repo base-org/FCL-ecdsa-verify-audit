@@ -1,0 +1,4 @@
+github.com/ethereum/go-ethereum v1.13.12 h1:iDr9UM2JWkngBHGovRJEQn4Kor7mT4gt9rUZqB5M29Y=
+github.com/ethereum/go-ethereum v1.13.12/go.mod h1:hKL2Qcj1OvStXNSEDbucexqnEt1Wh4Cz329XsjAalZY=
+github.com/holiman/uint256 v1.2.4 h1:jUc4Nk8fm9jZabQuqr2JzednajVmBpC+oiTiXZJEApU=
+github.com/holiman/uint256 v1.2.4/go.mod h1:EOMSn4q6Nyt9P6efbI3bueV4e1b3dGlUCXeiRV4ng7E=
