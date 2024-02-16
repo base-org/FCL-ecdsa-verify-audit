@@ -15,9 +15,7 @@ contract IsOnCurve is Test {
         bytes32 y;
     }
 
-    function test() public {}
-
-    function test_vectors() public {
+    function test_ecAff_isOnCurve() public {
         string memory rootPath = vm.projectRoot();
         string memory path = string.concat(rootPath, "/go/gen/keys.json");
         string memory json = vm.readFile(path);
