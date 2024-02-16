@@ -98,38 +98,21 @@ contract FCLTest is Test {
     //     // assertEq(y, yPrime);
     // }
 
-    function test_values() public {
+    function test_values(uint256 z, uint256 pk) public {
+        vm.assume(z > 0);
         // choose (x1, y1)
-        (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(1);
-        console2.log("x", x);
-        console2.log("y", y);
-        // convert it to (x’1, y’1, zz, zzz)
-        (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, 1);
-        console2.log("xPrime", xPrime);
-        console2.log("yPrime", yPrime);
-        console2.log("zz", zz);
-        console2.log("zzz", zzz);
+        (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(pk);
+        assertTrue(FCL.ecAff_isOnCurve(x, y));
+        (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
         // and double it
         (uint256 p0, uint256 p1, uint256 p2, uint256 p3) = FCL.ecZZ_Dbl(xPrime, yPrime, zz, zzz);
+        (uint256 xx, uint256 yy) = FCL.ecZZ_SetAff(p0, p1, p2, p3);
+
         // call the affine#Add Go function with (x1, y1) and (x1, y1)
         (uint256 go_x, uint256 go_y) = _ecdsaAdd(x, y);
-        console2.log("go_x", go_x);
-        console2.log("go_y", go_y);
-        // convert its output to projective
-        (uint256 go_p0, uint256 go_p1, uint256 go_p2, uint256 go_p3) = _convertXY(go_x, go_y, 1);
         // then compare that the two are the same
-        console2.log("p0", p0);
-        console2.log("go_p0", go_p0);
-        console2.log("p1", p1);
-        console2.log("go_p1", go_p1);
-        console2.log("p2", p2);
-        console2.log("go_p2", go_p2);
-        console2.log("p3", p3);
-        console2.log("go_p3", go_p3);
-        assertEq(p0, go_p0);
-        assertEq(p1, go_p1);
-        assertEq(p2, go_p2);
-        assertEq(p3, go_p3);
+        assertEq(xx, go_x);
+        assertEq(yy, go_y);
     }
 
     function _validXY(uint256 x_) internal returns (uint256 x, uint256 y) {
