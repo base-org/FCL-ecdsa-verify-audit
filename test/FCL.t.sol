@@ -113,21 +113,23 @@ contract FCLTest is Test {
         (uint256 p0, uint256 p1, uint256 p2, uint256 p3) = FCL.ecZZ_Dbl(xPrime, yPrime, zz, zzz);
         // call the affine#Add Go function with (x1, y1) and (x1, y1)
         (uint256 go_x, uint256 go_y) = _ecdsaAdd(x, y);
+        console2.log("go_x", go_x);
+        console2.log("go_y", go_y);
         // convert its output to projective
-        (uint256 go_xPrime, uint256 go_yPrime, uint256 go_zz, uint256 go_zzz) = _convertXY(go_x, go_y, 1);
+        (uint256 go_p0, uint256 go_p1, uint256 go_p2, uint256 go_p3) = _convertXY(go_x, go_y, 1);
         // then compare that the two are the same
         console2.log("p0", p0);
-        console2.log("p0_2", go_xPrime);
+        console2.log("go_p0", go_p0);
         console2.log("p1", p1);
-        console2.log("p1_2", go_yPrime);
+        console2.log("go_p1", go_p1);
         console2.log("p2", p2);
-        console2.log("p2_2", go_zz);
+        console2.log("go_p2", go_p2);
         console2.log("p3", p3);
-        console2.log("p3_2", go_zzz);
-        assertEq(p0, go_xPrime);
-        assertEq(p1, go_yPrime);
-        assertEq(p2, go_zz);
-        assertEq(p3, go_zzz);
+        console2.log("go_p3", go_p3);
+        assertEq(p0, go_p0);
+        assertEq(p1, go_p1);
+        assertEq(p2, go_p2);
+        assertEq(p3, go_p3);
     }
 
     function _validXY(uint256 x_) internal returns (uint256 x, uint256 y) {
