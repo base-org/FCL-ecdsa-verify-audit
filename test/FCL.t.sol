@@ -98,10 +98,10 @@ contract FCLTest is Test {
     //     // assertEq(y, yPrime);
     // }
 
-    function test_values(uint256 z) public {
+    function test_values(uint256 z, uint256 pk) public {
         vm.assume(z > 0);
         // choose (x1, y1)
-        (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(1);
+        (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(pk);
         assertTrue(FCL.ecAff_isOnCurve(x, y));
         (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
         // and double it
