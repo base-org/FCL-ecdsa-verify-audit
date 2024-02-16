@@ -98,13 +98,14 @@ contract FCLTest is Test {
     //     // assertEq(y, yPrime);
     // }
 
-    function test_values() public {
+    function test_values(uint256 z) public {
+        vm.assume(z > 0);
         // choose (x1, y1)
         (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(1);
         assertTrue(FCL.ecAff_isOnCurve(x, y));
-
+        (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
         // and double it
-        (uint256 p0, uint256 p1, uint256 p2, uint256 p3) = FCL.ecZZ_Dbl(x, y, 1, 1);
+        (uint256 p0, uint256 p1, uint256 p2, uint256 p3) = FCL.ecZZ_Dbl(xPrime, yPrime, zz, zzz);
         (uint256 xx, uint256 yy) = FCL.ecZZ_SetAff(p0, p1, p2, p3);
 
         // call the affine#Add Go function with (x1, y1) and (x1, y1)
