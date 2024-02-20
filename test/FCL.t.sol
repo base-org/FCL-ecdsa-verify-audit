@@ -114,11 +114,8 @@ contract FCLTest is Test {
         assertEq(yy, go_y);
     }
 
-    function test_ecZZ_mulmuladd_S_asm() public {
-        // vm.assume(z > 0 && pk > 0 && pk != pk2);
-        uint256 pk = 1;
-        uint256 pk2 = 2;
-        uint256 z = 1;
+    function test_ecZZ_mulmuladd_S_asm(uint256 pk, uint256 pk2, uint256 z) public {
+        vm.assume(z > 0 && pk > 0 && pk2 > 0 && pk != pk2);
         // choose valid (x, y), (t1, t2)
         (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(pk);
         (uint256 t1, uint256 t2) = FCL_ecdsa_utils.ecdsa_derivKpub(pk2);
@@ -126,13 +123,11 @@ contract FCLTest is Test {
         (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
         // verify 205-253  =  = ecAff_add(x', y', zz, zzz, t1, t2)
         (uint256 i_x, uint256 i_y, uint256 i_t1, uint256 i_t2) = ecZZAddN(xPrime, yPrime, zz, zzz, t1, t2);
-        // console2.log(i_x);
         (uint256 p0, uint256 p1, uint256 p2, uint256 p3) = FCL.ecZZ_AddN(xPrime, yPrime, zz, zzz, t1, t2);
-        console2.log(p0);
-        console2.log(p1);
-        console2.log(p2);
-        console2.log(p3);
         assertEq(p0, i_x);
+        assertEq(p1, i_y);
+        assertEq(p2, i_t1);
+        assertEq(p3, i_t2);
     }
 
     function ecZZAddN(uint256 X, uint256 Y, uint256 zz, uint256 zzz, uint256 T1, uint256 T2)
@@ -142,8 +137,6 @@ contract FCLTest is Test {
     {
         uint256 p = FCL.p;
         uint256 minus_2 = FCL.minus_2;
-        console2.log(X);
-        console2.log(T1);
         uint256 T3;
         uint256 T4;
         assembly {
@@ -158,9 +151,13 @@ contract FCLTest is Test {
                     continue
                 }
                 // inlined EcZZ_AddN
+                
+                // we added this line to get functions to match
+                Y := sub(p, Y)
+                //
 
-                //T3:=sub(p, Y)
-                //T3:=Y
+                // T3:=sub(p, Y)
+                // T3:=Y
                 let y2 := addmod(mulmod(T2, zzz, p), Y, p) //R
                 T2 := addmod(mulmod(T1, zz, p), sub(p, X), p) //P
 
@@ -199,16 +196,6 @@ contract FCLTest is Test {
                 X := T4
             }
         }
-        console2.log("end");
-        console2.log(X);
-        console2.log(Y);
-        console2.log(T1);
-        console2.log(T2);
-        console2.log(T3);
-        console2.log(T4);
-        console2.log(zz);
-        console2.log(zzz);
-        console2.log("end");
         return (X, Y, zz, zzz);
     }
 
