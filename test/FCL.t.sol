@@ -115,21 +115,36 @@ contract FCLTest is Test {
     }
 
     // test 2b
-    function test_ecZZ_Dbl_impl1(uint256 pk, uint256 z) public {
+    function test_ecZZ_Dbl_impl1() public {
+        uint256 pk = 1;
+        uint256 z = 2;
         uint256 INT256MAX =  2**255 -1;
         vm.assume(z > 0 && z < INT256MAX && pk > 0);
-        console.log(z);
         // choose (x1, y1)
         (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(pk);
+        console2.log("X, Y");
+        console2.log(x);
+        console2.log(y);
         (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
+        console2.log("xPrime, yPrime, zz, zzz");
+        console2.log(xPrime);
+        console2.log(yPrime);
+        console2.log(zz);
+        console2.log(zzz);
         // (x1, y1) = lines 167-176(x, y)
         (uint256 X, uint256 Y_uint) = ecZZDbl_inline1(xPrime, yPrime, zz, zzz);
         bound(Y_uint, 0, INT256MAX);
         int256 Y = int256(Y_uint);
+        console2.log("inline X, Y");
+        console2.log(X);
+        console2.log(Y);
         // (x2, y2) = ecZZ_Dbl(x', y', zz, zzz)
         (uint256 x2, uint256 y2_uint, ,) = FCL.ecZZ_Dbl(xPrime, yPrime, zz, zzz);
         bound(y2_uint, 0, INT256MAX);
         int256 y2 = int256(y2_uint);
+        console2.log("standalone x2, y2");
+        console2.log(x2);
+        console2.log(y2);
         // Verify that:
         // x1 = x2
         // y1 = -y2
@@ -165,6 +180,27 @@ contract FCLTest is Test {
         (uint256 X, uint256 Y, , ) = eczzAddn_inline(x1Prime, y1Prime, zz1, zzz1, x2, y2);
         assertEq(p0, X);
         assertEq(p1, Y);
+    }
+
+    // test 2e
+    function test_ecZZ_mulmod(uint256 pk, uint256 x, uint256 z) public {
+        vm.assume(pk > 0 && z > 0 && x > 0);
+        uint256 p = FCL.p;
+        x = x % p;
+
+        // uint256 zInv = FCL_pModInv(z); // 1/z
+        // uint256 zzInv = mulmod(zInv, zInv, p); // 1/zz
+        // x1 = mulmod(x, zzInv, p); // x/zz
+        uint256 zInv = FCL.FCL_pModInv(z); // 1/z
+        uint256 x1;
+        assembly {
+            let zzInv := mulmod(zInv, zInv, p)
+            x1 := mulmod(x, zzInv, p)
+        }
+        
+        uint256 x2 = eczzMulmod_inline(x, z);
+
+        assertEq(x1,x2);
     }
 
     function test_ecZZ_mulmuladd_S_asm() public {
@@ -327,6 +363,7 @@ contract FCLTest is Test {
             return (X, Y);
     }
 
+    // from FCL.sol lines 237 - 243
     function eczzAddn_inline(uint256 X, uint256 Y, uint256 zz, uint256 zzz, uint256 T1, uint256 T2) 
         internal 
         pure 
@@ -354,6 +391,39 @@ contract FCLTest is Test {
             X := T4
         }
         return (X, Y, zz, zzz);
+    }
+
+    // from FCL.sol lines 248 - 267
+    function eczzMulmod_inline(uint256 X, uint256 zz) 
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 p = FCL.p;
+        uint256 minus_2 = FCL.minus_2;
+        assembly {
+                let T := mload(0x40)
+                mstore(add(T, 0x60), zz)
+                //(X,Y)=ecZZ_SetAff(X,Y,zz, zzz);
+                //T[0] = inverseModp_Hard(T[0], p); //1/zzz, inline modular inversion using precompile:
+                // Define length of base, exponent and modulus. 0x20 == 32 bytes
+                mstore(T, 0x20)
+                mstore(add(T, 0x20), 0x20)
+                mstore(add(T, 0x40), 0x20)
+                // Define variables base, exponent and modulus
+                //mstore(add(pointer, 0x60), u)
+                mstore(add(T, 0x80), minus_2)
+                mstore(add(T, 0xa0), p)
+
+                // Call the precompiled contract 0x05 = ModExp
+                if iszero(staticcall(not(0), 0x05, T, 0xc0, T, 0x20)) { revert(0, 0) }
+
+                //Y:=mulmod(Y,zzz,p)//Y/zzz
+                //zz :=mulmod(zz, mload(T),p) //1/z
+                //zz:= mulmod(zz,zz,p) //1/zz
+                X := mulmod(X, mload(T), p) //X/zz
+        }
+        return X;
     }
 
     //     function _inlinedAdd(uint T1, uint T2, uint X, uint Y, uint zz, uint zzz, uint p) internal returns (uint newX, uint newY, uint newZZ, uint newZZZ) {
