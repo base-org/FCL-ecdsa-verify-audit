@@ -116,21 +116,25 @@ contract FCLTest is Test {
 
     // test 2b
     function test_ecZZ_Dbl_impl1(uint256 pk, uint256 z) public {
-        vm.assume(z > 0 && z < (2**255 -1) && pk > 0);
+        uint256 INT256MAX =  2**255 -1;
+        vm.assume(z > 0 && z < INT256MAX && pk > 0);
         console.log(z);
         // choose (x1, y1)
         (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(pk);
         (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
         // (x1, y1) = lines 167-176(x, y)
         (uint256 X, uint256 Y_uint) = ecZZDbl_inline1(xPrime, yPrime, zz, zzz);
+        bound(Y_uint, 0, INT256MAX);
         int256 Y = int256(Y_uint);
         // (x2, y2) = ecZZ_Dbl(x', y', zz, zzz)
-        (uint256 p0, uint256 p1, ,) = FCL.ecZZ_Dbl(xPrime, yPrime, zz, zzz);
+        (uint256 x2, uint256 y2_uint, ,) = FCL.ecZZ_Dbl(xPrime, yPrime, zz, zzz);
+        bound(y2_uint, 0, INT256MAX);
+        int256 y2 = int256(y2_uint);
         // Verify that:
         // x1 = x2
         // y1 = -y2
-        assertEq(p0, X);
-        assertEq(int256(p1), -1*Y);
+        assertEq(X, x2);
+        assertEq(Y, -y2);
     }
 
     // test 2c
@@ -146,7 +150,19 @@ contract FCLTest is Test {
         (uint256 p0, uint256 p1, ,) = FCL.ecZZ_Dbl(xPrime, yPrime, zz, zzz);
         // Verify that:
         // x1 = x2
-        // y1 = -y2
+        // y1 = y2
+        assertEq(p0, X);
+        assertEq(p1, Y);
+    }
+
+    // test 2d
+    function test_ecZZ_AddN_inline(uint256 pk1, uint256 pk2, uint256 z) public {
+        vm.assume(z > 0 && pk1 > 0 && pk2 > 0 && pk1 != pk2);
+        (uint256 x1, uint256 y1) = FCL_ecdsa_utils.ecdsa_derivKpub(pk1);
+        (uint256 x2, uint256 y2) = FCL_ecdsa_utils.ecdsa_derivKpub(pk2);
+        (uint256 x1Prime, uint256 y1Prime, uint256 zz1, uint256 zzz1) = _convertXY(x1, y1, z);
+        (uint256 p0, uint256 p1, , ) = FCL.ecZZ_AddN(x1Prime, y1Prime, zz1, zzz1, x2, y2);
+        (uint256 X, uint256 Y, , ) = eczzAddn_inline(x1Prime, y1Prime, zz1, zzz1, x2, y2);
         assertEq(p0, X);
         assertEq(p1, Y);
     }
@@ -309,6 +325,35 @@ contract FCLTest is Test {
                 Y := addmod(T2, mulmod(T1, Y, p), p) //Y3= M(S-X3)-W*Y1
             }
             return (X, Y);
+    }
+
+    function eczzAddn_inline(uint256 X, uint256 Y, uint256 zz, uint256 zzz, uint256 T1, uint256 T2) 
+        internal 
+        pure 
+        returns (uint256, uint256, uint256, uint256)
+    {
+        uint256 p = FCL.p;
+        uint256 minus_2 = FCL.minus_2;
+
+        uint256 T4;
+
+        assembly {
+            // this line is commented out in the actual implementation, but the test fails without it
+            Y := sub(p, Y)
+
+            let y2 := addmod(mulmod(T2, zzz, p), Y, p) //R
+            T2 := addmod(mulmod(T1, zz, p), sub(p, X), p) //P
+            T4 := mulmod(T2, T2, p) //PP
+            let TT1 := mulmod(T4, T2, p) //PPP, this one could be spared, but adding this register spare gas
+            zz := mulmod(zz, T4, p)
+            zzz := mulmod(zzz, TT1, p) //zz3=V*ZZ1
+            let TT2 := mulmod(X, T4, p)
+            T4 := addmod(addmod(mulmod(y2, y2, p), sub(p, TT1), p), mulmod(minus_2, TT2, p), p)
+            Y := addmod(mulmod(addmod(TT2, sub(p, T4), p), y2, p), mulmod(Y, TT1, p), p)
+
+            X := T4
+        }
+        return (X, Y, zz, zzz);
     }
 
     //     function _inlinedAdd(uint T1, uint T2, uint X, uint Y, uint zz, uint zzz, uint p) internal returns (uint newX, uint newY, uint newZZ, uint newZZZ) {
@@ -542,7 +587,7 @@ contract FCLTest is Test {
 
     function _convertXY(uint256 x, uint256 y, uint256 z)
         internal
-        view
+        pure
         returns (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz)
     {
         zz = mulmod(z, z, FCL.p);
