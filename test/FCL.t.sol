@@ -161,7 +161,8 @@ contract FCLTest is Test {
 
                 //T3:=sub(p, Y)
                 //T3:=Y
-                let y2 := addmod(mulmod(T2, zzz, p), Y, p) //R
+                Y := sub(p, Y)
+                let y2 := addmod(mulmod(T2, zzz, p), Y, p) // R
                 T2 := addmod(mulmod(T1, zz, p), sub(p, X), p) //P
 
                 //special extremely rare case accumulator where EcAdd is replaced by EcDbl, no need to optimize this
@@ -190,7 +191,7 @@ contract FCLTest is Test {
 
                 T4 := mulmod(T2, T2, p) //PP
                 let TT1 := mulmod(T4, T2, p) //PPP, this one could be spared, but adding this register spare gas
-                zz := mulmod(zz, T4, p)
+                zz := mulmod(zz, T4, p) //ZZ1 
                 zzz := mulmod(zzz, TT1, p) //zz3=V*ZZ1
                 let TT2 := mulmod(X, T4, p)
                 T4 := addmod(addmod(mulmod(y2, y2, p), sub(p, TT1), p), mulmod(minus_2, TT2, p), p)
