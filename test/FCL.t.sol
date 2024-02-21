@@ -148,11 +148,7 @@ contract FCLTest is Test {
         // Verify that:
         // x1 = x2
         // y1 = -y2
-        uint256 minusY2;
-        uint256 p = FCL.p;
-        assembly {
-           minusY2 := sub(p, y2)
-        }
+        uint256 minusY2 = FCL.p - y2;
         assertEq(X, x2);
         assertEq(Y, minusY2);
     }
