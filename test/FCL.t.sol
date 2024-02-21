@@ -126,7 +126,7 @@ contract FCLTest is Test {
         (uint256 i_x, uint256 i_y, uint256 i_t1, uint256 i_t2) = ecZZAddN(xPrime, yPrime, zz, zzz, t1, t2);
         // console2.log(i_x);
         (uint256 p0, uint256 p1, uint256 p2, uint256 p3) = FCL.ecZZ_AddN(xPrime, yPrime, zz, zzz, t1, t2);
-        assertEq(p0, i_x);        
+        assertEq(p0, i_x);
         assertEq(p1, i_y);
         assertEq(p2, i_t1);
         assertEq(p3, i_t2);
@@ -196,38 +196,24 @@ contract FCLTest is Test {
         (uint256 x2, uint256 y2) = FCL.ecZZ_SetAff(x1Prime, y1Prime, zz1, zzz1);
         assertEq(x1,x2);
         assertEq(y1,y2);
-
         uint256 p = FCL.p;
         x = x % p;
-
         // uint256 zInv = FCL_pModInv(z); // 1/z
         // uint256 zzInv = mulmod(zInv, zInv, p); // 1/zz
         // x1 = mulmod(x, zzInv, p); // x/zz
-
         uint256 zzzInv = FCL.FCL_pModInv(zzz1); //1/zzz
         // y1 = mulmod(y, zzzInv, p); //Y/zzz
         uint256 _b = mulmod(zz1, zzzInv, p); //1/z
         uint256 zzInv_orig = mulmod(_b, _b, p); //1/zz
         // x1 = mulmod(x, zzInv_orig, p); //X/zz
-
         uint256 zInv = FCL.FCL_pModInv(z); // 1/z == _b
         assertEq(_b, zInv);
-        uint256 x3;
-        uint256 zzInv;
-
-        assembly {
-            zzInv := mulmod(zInv, zInv, p)
-            x3 := mulmod(x1Prime, zzInv, p)
-        }
-
+        uint256 zzInv = mulmod(zInv, zInv, p);
+        uint256 x3 = mulmod(x1Prime, zzInv, p);
         assertEq(zzInv,zzInv_orig);
-        
         uint256 x4 = eczzMulmod_inline(x1Prime, zz1);
-        console.log("X1 v X4");
         assertEq(x1,x4);
-        console.log("X3 v X2");
         assertEq(x3,x2);
-        console.log("X3 v X4");
         assertEq(x3,x4);
     }
 
