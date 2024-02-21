@@ -126,14 +126,13 @@ contract FCLTest is Test {
         // convert (x, y) to projective: (x', y', zz, zzz)
         (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
         // verify 205-253  =  = ecAff_add(x', y', zz, zzz, t1, t2)
-        (uint256 i_x, , , ) = ecZZAddN(xPrime, yPrime, zz, zzz, t1, t2);
+        (uint256 i_x, uint256 i_y, uint256 i_t1, uint256 i_t2) = ecZZAddN(xPrime, yPrime, zz, zzz, t1, t2);
         // console2.log(i_x);
         (uint256 p0, uint256 p1, uint256 p2, uint256 p3) = FCL.ecZZ_AddN(xPrime, yPrime, zz, zzz, t1, t2);
-        console2.log(p0);
-        console2.log(p1);
-        console2.log(p2);
-        console2.log(p3);
-        assertEq(p0, i_x);
+        assertEq(p0, i_x);        
+        assertEq(p1, i_y);
+        assertEq(p2, i_t1);
+        assertEq(p3, i_t2);
     }
 
     // test 2b
