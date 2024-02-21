@@ -115,8 +115,6 @@ contract FCLTest is Test {
     }
     
     // test 2a
-    
-    // test 2a
     function test_ecZZ_mulmuladd_S_asm() public {
         // vm.assume(z > 0 && pk > 0 && pk != pk2);
         uint256 pk = 1;
@@ -128,7 +126,7 @@ contract FCLTest is Test {
         // convert (x, y) to projective: (x', y', zz, zzz)
         (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
         // verify 205-253  =  = ecAff_add(x', y', zz, zzz, t1, t2)
-        (uint256 i_x, uint256 i_y, uint256 i_t1, uint256 i_t2) = ecZZAddN(xPrime, yPrime, zz, zzz, t1, t2);
+        (uint256 i_x, , , ) = ecZZAddN(xPrime, yPrime, zz, zzz, t1, t2);
         // console2.log(i_x);
         (uint256 p0, uint256 p1, uint256 p2, uint256 p3) = FCL.ecZZ_AddN(xPrime, yPrime, zz, zzz, t1, t2);
         console2.log(p0);
@@ -139,12 +137,11 @@ contract FCLTest is Test {
     }
 
     // test 2b
-    function test_ecZZ_Dbl_impl1() public {
-        // MOD the random value to P instead of bounding 
-        uint256 pk = 1;
-        uint256 z = 2;
-        uint256 INT256MAX =  2**255 -1;
-        vm.assume(z > 0 && z < INT256MAX && pk > 0);
+    function test_ecZZ_Dbl_impl1(uint256 pk, uint256 z) public {
+        vm.assume(z > 0 && pk > 0);
+        // mod fuzzed values to P instead of bounding to ensure no overflow
+        pk = pk % FCL.p;
+        z = z % FCL.p;
         // choose (x1, y1)
         (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(pk);
         (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
@@ -188,6 +185,7 @@ contract FCLTest is Test {
         (uint256 x1, uint256 y1) = FCL_ecdsa_utils.ecdsa_derivKpub(pk1);
         (uint256 x2, uint256 y2) = FCL_ecdsa_utils.ecdsa_derivKpub(pk2);
         (uint256 x1Prime, uint256 y1Prime, uint256 zz1, uint256 zzz1) = _convertXY(x1, y1, z);
+        // lines243to251(x, y, zz, zzz, t1, t2) = ecZZ_AddN(x, y, zz, zzz, T1, T2)
         (uint256 p0, uint256 p1, , ) = FCL.ecZZ_AddN(x1Prime, y1Prime, zz1, zzz1, x2, y2);
         (uint256 X, uint256 Y, , ) = eczzAddn_inline(x1Prime, y1Prime, zz1, zzz1, x2, y2);
         assertEq(p0, X);
@@ -216,129 +214,6 @@ contract FCLTest is Test {
         uint256 zzInv_orig = mulmod(_b, _b, p); //1/zz
         // x1 = mulmod(x, zzInv_orig, p); //X/zz
 
-        uint256 zz;
-        assembly {
-            zz := mulmod(z, z, p)
-        }
-        uint256 zInv = FCL.FCL_pModInv(z); // 1/z == _b
-        assertEq(_b, zInv);
-        uint256 x3;
-        uint256 zzInv;
-
-        assembly {
-            zzInv := mulmod(zInv, zInv, p)
-            x3 := mulmod(x1Prime, zzInv, p)
-        }
-
-        assertEq(zzInv,zzInv_orig);
-        
-        uint256 x4 = eczzMulmod_inline(x1Prime, zz1);
-        console.log("X1 v X4");
-        assertEq(x1,x4);
-        console.log("X3 v X2");
-        assertEq(x3,x2);
-        console.log("X3 v X4");
-        assertEq(x3,x4);
-    }
-
-    // test 2f
-    function test_mulmuladd_S_bug(uint256 v1, uint256 v2) public {
-        vm.assume(v1 > 0 && v2 > 0);
-        // let Q = (p-16)G --> 
-        // let Q = ecZZ_mulmuladd_S_asm(whatever, whatever, (p-16), 0) --> 
-        // remove the last part and instead call ecZZ_setAff(X, Y, zz, zz) and output (X, Y)
-        uint256 p_minus16 = FCL.p - 16;
-        (uint256 Q0, uint256 Q1) = eczz_mulmuladd_S_truncated_inline(v1, v2, p_minus16, 0);
-        // let u = 16
-        // let v = 1
-        // Verify:
-        // ecZZ_mulmuladd_S_asm(Q0, Q1, u, v) = 0
-        uint256 X = FCL.ecZZ_mulmuladd_S_asm(Q0, Q1, 16, 1);
-        assertEq(0,X);
-    }
-
-    // test 2b
-    function test_ecZZ_Dbl_impl1() public {
-        // MOD the random value to P instead of bounding 
-        uint256 pk = 1;
-        uint256 z = 2;
-        uint256 INT256MAX =  2**255 -1;
-        vm.assume(z > 0 && z < INT256MAX && pk > 0);
-        // choose (x1, y1)
-        (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(pk);
-        (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
-        // (x1, y1) = lines 167-176(x, y)
-        (uint256 X, uint256 Y) = ecZZDbl_inline1(xPrime, yPrime, zz, zzz);
-        // (x2, y2) = ecZZ_Dbl(x', y', zz, zzz)
-        (uint256 x2, uint256 y2, ,) = FCL.ecZZ_Dbl(xPrime, yPrime, zz, zzz);
-        // Verify that:
-        // x1 = x2
-        // y1 = -y2
-        uint256 minusY2;
-        uint256 p = FCL.p;
-        assembly {
-           minusY2 := sub(p, y2)
-        }
-        assertEq(X, x2);
-        assertEq(Y, minusY2);
-    }
-
-    // test 2c
-    function test_ecZZ_Dbl_impl2(uint256 pk, uint256 z) public {
-        vm.assume(z > 0 && pk > 0);
-        console.log(z);
-        // choose (x1, y1)
-        (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(pk);
-        (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
-        // (x1, y1) = lines 217 - 231(x, y)
-        (uint256 X, uint256 Y) = ecZZDbl_inline2(xPrime, yPrime, zz, zzz);
-        // (x2, y2) = ecZZ_Dbl(x', y', zz, zzz)
-        (uint256 p0, uint256 p1, ,) = FCL.ecZZ_Dbl(xPrime, yPrime, zz, zzz);
-        // Verify that:
-        // x1 = x2
-        // y1 = y2
-        assertEq(p0, X);
-        assertEq(p1, Y);
-    }
-
-    // test 2d
-    function test_ecZZ_AddN_inline(uint256 pk1, uint256 pk2, uint256 z) public {
-        vm.assume(z > 0 && pk1 > 0 && pk2 > 0 && pk1 != pk2);
-        (uint256 x1, uint256 y1) = FCL_ecdsa_utils.ecdsa_derivKpub(pk1);
-        (uint256 x2, uint256 y2) = FCL_ecdsa_utils.ecdsa_derivKpub(pk2);
-        (uint256 x1Prime, uint256 y1Prime, uint256 zz1, uint256 zzz1) = _convertXY(x1, y1, z);
-        (uint256 p0, uint256 p1, , ) = FCL.ecZZ_AddN(x1Prime, y1Prime, zz1, zzz1, x2, y2);
-        (uint256 X, uint256 Y, , ) = eczzAddn_inline(x1Prime, y1Prime, zz1, zzz1, x2, y2);
-        assertEq(p0, X);
-        assertEq(p1, Y);
-    }
-
-    // test 2e
-    function test_ecZZ_mulmod(uint256 pk, uint256 x, uint256 z) public {
-        vm.assume(pk > 0 && z > 0 && x > 0);
-        (uint256 x1, uint256 y1) = FCL_ecdsa_utils.ecdsa_derivKpub(pk);
-        (uint256 x1Prime, uint256 y1Prime, uint256 zz1, uint256 zzz1) = _convertXY(x1, y1, z);
-        (uint256 x2, uint256 y2) = FCL.ecZZ_SetAff(x1Prime, y1Prime, zz1, zzz1);
-        assertEq(x1,x2);
-        assertEq(y1,y2);
-
-        uint256 p = FCL.p;
-        x = x % p;
-
-        // uint256 zInv = FCL_pModInv(z); // 1/z
-        // uint256 zzInv = mulmod(zInv, zInv, p); // 1/zz
-        // x1 = mulmod(x, zzInv, p); // x/zz
-
-        uint256 zzzInv = FCL.FCL_pModInv(zzz1); //1/zzz
-        // y1 = mulmod(y, zzzInv, p); //Y/zzz
-        uint256 _b = mulmod(zz1, zzzInv, p); //1/z
-        uint256 zzInv_orig = mulmod(_b, _b, p); //1/zz
-        // x1 = mulmod(x, zzInv_orig, p); //X/zz
-
-        uint256 zz;
-        assembly {
-            zz := mulmod(z, z, p)
-        }
         uint256 zInv = FCL.FCL_pModInv(z); // 1/z == _b
         assertEq(_b, zInv);
         uint256 x3;
