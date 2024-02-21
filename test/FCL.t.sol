@@ -116,7 +116,7 @@ contract FCLTest is Test {
     
     // test 2a
     function test_ecZZ_mulmuladd_S_asm(uint256 pk, uint256 pk2, uint256 z) public {
-        vm.assume(z > 0 && pk > 0 && pk != pk2);
+        vm.assume(z > 0 && pk > 0 && pk2 > 0 && pk != pk2);
         // choose valid (x, y), (t1, t2)
         (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(pk);
         (uint256 t1, uint256 t2) = FCL_ecdsa_utils.ecdsa_derivKpub(pk2);
