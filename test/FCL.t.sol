@@ -113,6 +113,20 @@ contract FCLTest is Test {
         assertEq(xx, go_x);
         assertEq(yy, go_y);
     }
+
+    // validator for go implementation of Scalar Mult
+    function test_goScalarMult(uint256 k1, uint256 k2, uint256 k3) public {
+        vm.assume(k1 >0 && k2>0 && k1 != k2);
+        k1 = k1 % FCL.p;
+        k2 = k2 % FCL.p;
+        k3 = (k1 + k2) % FCL.p;
+        (uint256 x1, uint256 y1) = _goEcdsaScalarMult(k1);
+        (uint256 x2, uint256 y2) = _goEcdsaScalarMult(k2);
+        (uint256 x3, uint256 y3) = _goEcdsaScalarMult(k3);
+        (uint256 x3Prime, uint256 y3Prime) = FCL.ecAff_add(x1, y1, x2, y2);
+        assertEq(x3, x3Prime);
+        assertEq(y3, y3Prime);
+    }
     
     // test 2a
     function test_ecZZ_mulmuladd_S_asm(uint256 pk, uint256 pk2, uint256 z) public {
@@ -220,11 +234,18 @@ contract FCLTest is Test {
         // let Q = ecZZ_mulmuladd_S_asm(whatever, whatever, (p-16), 0) --> 
         // remove the last part and instead call ecZZ_setAff(X, Y, zz, zz) and output (X, Y)
         uint256 p_minus16 = FCL.p - 16;
-        (uint256 Q0, uint256 Q1) = eczz_mulmuladd_S_truncated_inline(v1, v2, p_minus16, 0);
+        (uint256 Q0, uint256 Q1) = _goEcdsaScalarMult(p_minus16);
+
+        // Test whether we are hitting the expected case 
+        uint256 test_resp = eczz_mulmuladd_S_truncated_inline(Q0, Q1, 16, 1);
+        assertEq(42, test_resp);
+        // console2.log(test_resp);
         // let u = 16
         // let v = 1
         // Verify:
         // ecZZ_mulmuladd_S_asm(Q0, Q1, u, v) = 0
+
+        // Demonstrate that there is a bug
         uint256 X = FCL.ecZZ_mulmuladd_S_asm(Q0, Q1, 16, 1);
         assertEq(0,X);
     }
@@ -427,7 +448,7 @@ contract FCLTest is Test {
         uint256 Q1, //affine rep for input point Q
         uint256 scalar_u,
         uint256 scalar_v
-    ) internal view returns (uint256 X, uint256 Y) {
+    ) internal view returns (uint256) {
         uint256 p = FCL.p;
         uint256 gx = FCL.gx;
         uint256 gy = FCL.gy;
@@ -436,6 +457,9 @@ contract FCLTest is Test {
         uint256 index = 255;
         uint256 zz;
         uint256 zzz;
+        uint256 Y;
+        uint256 X;
+        uint256 inConditional;
 
         unchecked {
             (uint256 H0, uint256 H1) = FCL.ecAff_add(gx, FCL.gy, Q0, Q1); 
@@ -509,7 +533,8 @@ contract FCLTest is Test {
                             Y := T2
                             zz := 1
                             zzz := 1
-                            continue
+                            inConditional := 42
+                            break
                         }
                         // inlined EcZZ_AddN
 
@@ -555,7 +580,7 @@ contract FCLTest is Test {
                 } //end loop
             }
         }
-        return (X, Y);
+        return (inConditional);// , Y);
     }
     //     function _inlinedAdd(uint T1, uint T2, uint X, uint Y, uint zz, uint zzz, uint p) internal returns (uint newX, uint newY, uint newZZ, uint newZZZ) {
     //     assembly {
@@ -762,6 +787,13 @@ contract FCLTest is Test {
         inputs[2] = vm.toString(y1);
         inputs[3] = vm.toString(x2);
         inputs[4] = vm.toString(y2);
+        return abi.decode(vm.ffi(inputs), (uint256, uint256));
+    }
+
+    function _goEcdsaScalarMult(uint256 k) internal returns (uint256, uint256) {
+        string [] memory inputs = new string[](2);
+        inputs[0] = "test/../go/scalar/scalar";
+        inputs[1] = vm.toString(k);
         return abi.decode(vm.ffi(inputs), (uint256, uint256));
     }
 
