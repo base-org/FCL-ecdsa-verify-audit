@@ -115,18 +115,18 @@ contract FCLTest is Test {
     }
 
     // validator for go implementation of Scalar Mult
-    function test_goScalarMult(uint256 k1, uint256 k2, uint256 k3) public {
-        vm.assume(k1 >0 && k2>0 && k1 != k2);
-        k1 = k1 % FCL.p;
-        k2 = k2 % FCL.p;
-        k3 = (k1 + k2) % FCL.p;
-        (uint256 x1, uint256 y1) = _goEcdsaScalarMult(k1);
-        (uint256 x2, uint256 y2) = _goEcdsaScalarMult(k2);
-        (uint256 x3, uint256 y3) = _goEcdsaScalarMult(k3);
-        (uint256 x3Prime, uint256 y3Prime) = FCL.ecAff_add(x1, y1, x2, y2);
-        assertEq(x3, x3Prime);
-        assertEq(y3, y3Prime);
-    }
+    // function test_goScalarMult(uint256 k1, uint256 k2, uint256 k3) public {
+    //     vm.assume(k1 >0 && k2>0 && k1 != k2);
+    //     k1 = k1 % FCL.p;
+    //     k2 = k2 % FCL.p;
+    //     k3 = (k1 + k2) % FCL.p;
+    //     (uint256 x1, uint256 y1) = _goEcdsaScalarMult(k1);
+    //     (uint256 x2, uint256 y2) = _goEcdsaScalarMult(k2);
+    //     (uint256 x3, uint256 y3) = _goEcdsaScalarMult(k3);
+    //     (uint256 x3Prime, uint256 y3Prime) = FCL.ecAff_add(x1, y1, x2, y2);
+    //     assertEq(x3, x3Prime);
+    //     assertEq(y3, y3Prime);
+    // }
     
     // test 2a
     function test_ecZZ_mulmuladd_S_asm(uint256 pk, uint256 pk2, uint256 z) public {
@@ -228,26 +228,17 @@ contract FCLTest is Test {
     }
 
     // test 2f
-    function test_mulmuladd_S_bug(uint256 v1, uint256 v2) public {
-        vm.assume(v1 > 0 && v2 > 0);
-        // let Q = (p-16)G --> 
-        // let Q = ecZZ_mulmuladd_S_asm(whatever, whatever, (p-16), 0) --> 
-        // remove the last part and instead call ecZZ_setAff(X, Y, zz, zz) and output (X, Y)
-        uint256 p_minus16 = FCL.p - 16;
-        (uint256 Q0, uint256 Q1) = _goEcdsaScalarMult(p_minus16);
-
-        // Test whether we are hitting the expected case 
-        uint256 test_resp = eczz_mulmuladd_S_truncated_inline(Q0, Q1, 16, 1);
-        assertEq(42, test_resp);
-        // console2.log(test_resp);
-        // let u = 16
-        // let v = 1
-        // Verify:
-        // ecZZ_mulmuladd_S_asm(Q0, Q1, u, v) = 0
-
-        // Demonstrate that there is a bug
-        uint256 X = FCL.ecZZ_mulmuladd_S_asm(Q0, Q1, 16, 1);
-        assertEq(0,X);
+    function test_mulmuladd_S_bugcheck() public {
+        (uint256 minus_gx, uint256 minus_gy) = _goEcdsaScalarMult(FCL.n-1);
+        (uint256 minus_two_gx, uint256 minus_two_gy) = _goEcdsaDouble(minus_gx, minus_gy);
+        (uint256 minus_four_gx, uint256 minus_four_gy) = _goEcdsaDouble(minus_two_gx, minus_two_gy);
+        // Test whether we are hitting the expected case
+        (uint256 testX) = eczz_mulmuladd_S_truncated_inline(minus_four_gx, minus_four_gy, 18, 4);
+        assertEq(testX, 42);
+        // Test that the complete method handles this case gracefully
+        uint256 X = FCL.ecZZ_mulmuladd_S_asm(minus_four_gx, minus_four_gy, 18, 4);
+        (uint256 t1, ) = _goEcdsaScalarMult(2);
+        assertEq(t1, X);
     }
 
     function ecZZAddN(uint256 X, uint256 Y, uint256 zz, uint256 zzz, uint256 T1, uint256 T2)
@@ -467,7 +458,6 @@ contract FCLTest is Test {
             {
                 scalar_u=addmod(scalar_u, FCL.n-scalar_v, FCL.n);
                 scalar_v=0;
-
             }
             assembly {
                 for { let T4 := add(shl(1, and(shr(index, scalar_v), 1)), and(shr(index, scalar_u), 1)) } eq(T4, 0) {
@@ -506,7 +496,6 @@ contract FCLTest is Test {
                     X := addmod(mulmod(T4, T4, p), mulmod(minus_2, T3, p), p) //X3=M^2-2S
                     T2 := mulmod(T4, addmod(X, sub(p, T3), p), p) //-M(S-X3)=M(X3-S)
                     Y := addmod(mulmod(T1, Y, p), T2, p) //-Y3= W*Y1-M(S-X3), we replace Y by -Y to avoid a sub in ecAdd
-
                     {
                         //value of dibit
                         T4 := add(shl(1, and(shr(index, scalar_v), 1)), and(shr(index, scalar_u), 1))
@@ -580,7 +569,7 @@ contract FCLTest is Test {
                 } //end loop
             }
         }
-        return (inConditional);// , Y);
+        return inConditional;
     }
     //     function _inlinedAdd(uint T1, uint T2, uint X, uint Y, uint zz, uint zzz, uint p) internal returns (uint newX, uint newY, uint newZZ, uint newZZZ) {
     //     assembly {

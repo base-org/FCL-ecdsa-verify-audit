@@ -29,8 +29,8 @@ func main() {
 	x1, y1 := curve.ScalarBaseMult(k.Bytes())
 
 	// Convert the byte slices to hexadecimal strings
-	x1Hex := hexutil.Encode(padBytes(x1.Bytes(), 32))
 	y1Hex := hexutil.Encode(padBytes(y1.Bytes(), 32))
+	x1Hex := hexutil.Encode(padBytes(x1.Bytes(), 32))
 
 	// Concatenate the hexadecimal strings and remove the '0x' prefix from the second string
 	result := x1Hex + y1Hex[2:]
