@@ -113,7 +113,8 @@ contract FCLTest is Test {
         assertEq(xx, go_x);
         assertEq(yy, go_y);
     }
-
+    
+    // test 2a
     function test_ecZZ_mulmuladd_S_asm(uint256 pk, uint256 pk2, uint256 z) public {
         vm.assume(z > 0 && pk > 0 && pk2 > 0 && pk != pk2);
         // choose valid (x, y), (t1, t2)
@@ -128,6 +129,101 @@ contract FCLTest is Test {
         assertEq(p1, i_y);
         assertEq(p2, i_t1);
         assertEq(p3, i_t2);
+    }
+
+    // test 2b
+    function test_ecZZ_Dbl_impl1(uint256 pk, uint256 z) public {
+        vm.assume(z > 0 && pk > 0);
+        // mod fuzzed values to P instead of bounding to ensure no overflow
+        pk = pk % FCL.p;
+        z = z % FCL.p;
+        // choose (x1, y1)
+        (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(pk);
+        (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
+        // (x1, y1) = lines 167-176(x, y)
+        (uint256 X, uint256 Y) = ecZZDbl_inline1(xPrime, yPrime, zz, zzz);
+        // (x2, y2) = ecZZ_Dbl(x', y', zz, zzz)
+        (uint256 x2, uint256 y2, ,) = FCL.ecZZ_Dbl(xPrime, yPrime, zz, zzz);
+        // Verify that:
+        // x1 = x2
+        // y1 = -y2
+        uint256 minusY2 = FCL.p - y2;
+        assertEq(X, x2);
+        assertEq(Y, minusY2);
+    }
+
+    // test 2c
+    function test_ecZZ_Dbl_impl2(uint256 pk, uint256 z) public {
+        vm.assume(z > 0 && pk > 0);
+        console.log(z);
+        // choose (x1, y1)
+        (uint256 x, uint256 y) = FCL_ecdsa_utils.ecdsa_derivKpub(pk);
+        (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
+        // (x1, y1) = lines 217 - 231(x, y)
+        (uint256 X, uint256 Y) = ecZZDbl_inline2(xPrime, yPrime, zz, zzz);
+        // (x2, y2) = ecZZ_Dbl(x', y', zz, zzz)
+        (uint256 p0, uint256 p1, ,) = FCL.ecZZ_Dbl(xPrime, yPrime, zz, zzz);
+        // Verify that:
+        // x1 = x2
+        // y1 = y2
+        assertEq(p0, X);
+        assertEq(p1, Y);
+    }
+
+    // test 2d
+    function test_ecZZ_AddN_inline(uint256 pk1, uint256 pk2, uint256 z) public {
+        vm.assume(z > 0 && pk1 > 0 && pk2 > 0 && pk1 != pk2);
+        (uint256 x1, uint256 y1) = FCL_ecdsa_utils.ecdsa_derivKpub(pk1);
+        (uint256 x2, uint256 y2) = FCL_ecdsa_utils.ecdsa_derivKpub(pk2);
+        (uint256 x1Prime, uint256 y1Prime, uint256 zz1, uint256 zzz1) = _convertXY(x1, y1, z);
+        // lines243to251(x, y, zz, zzz, t1, t2) = ecZZ_AddN(x, y, zz, zzz, T1, T2)
+        (uint256 p0, uint256 p1, , ) = FCL.ecZZ_AddN(x1Prime, y1Prime, zz1, zzz1, x2, y2);
+        (uint256 X, uint256 Y, , ) = eczzAddn_inline(x1Prime, y1Prime, zz1, zzz1, x2, y2);
+        assertEq(p0, X);
+        assertEq(p1, Y);
+    }
+
+    // test 2e
+    function test_ecZZ_mulmod(uint256 pk, uint256 x, uint256 z) public {
+        vm.assume(pk > 0 && z > 0 && x > 0);
+        (uint256 x1, uint256 y1) = FCL_ecdsa_utils.ecdsa_derivKpub(pk);
+        (uint256 x1Prime, uint256 y1Prime, uint256 zz1, uint256 zzz1) = _convertXY(x1, y1, z);
+        (uint256 x2, uint256 y2) = FCL.ecZZ_SetAff(x1Prime, y1Prime, zz1, zzz1);
+        assertEq(x1,x2);
+        assertEq(y1,y2);
+        uint256 p = FCL.p;
+        x = x % p;
+        // uint256 zInv = FCL_pModInv(z); // 1/z
+        // uint256 zzInv = mulmod(zInv, zInv, p); // 1/zz
+        // x1 = mulmod(x, zzInv, p); // x/zz
+        uint256 zzzInv = FCL.FCL_pModInv(zzz1); //1/zzz
+        // y1 = mulmod(y, zzzInv, p); //Y/zzz
+        uint256 _b = mulmod(zz1, zzzInv, p); //1/z
+        uint256 zzInv_orig = mulmod(_b, _b, p); //1/zz
+        // x1 = mulmod(x, zzInv_orig, p); //X/zz
+        uint256 zInv = FCL.FCL_pModInv(z); // 1/z == _b
+        assertEq(_b, zInv);
+        uint256 zzInv = mulmod(zInv, zInv, p);
+        uint256 x3 = mulmod(x1Prime, zzInv, p);
+        assertEq(zzInv,zzInv_orig);
+        uint256 x4 = eczzMulmod_inline(x1Prime, zz1);
+        assertEq(x1,x4);
+        assertEq(x3,x2);
+        assertEq(x3,x4);
+    }
+
+    // test 2f
+    function test_mulmuladd_S_bugcheck() public {
+        (uint256 minus_gx, uint256 minus_gy) = _goEcdsaScalarMult(FCL.n-1);
+        (uint256 minus_two_gx, uint256 minus_two_gy) = _goEcdsaDouble(minus_gx, minus_gy);
+        (uint256 minus_four_gx, uint256 minus_four_gy) = _goEcdsaDouble(minus_two_gx, minus_two_gy);
+        // Test whether we are hitting the expected case
+        (uint256 testX) = eczz_mulmuladd_S_truncated_inline(minus_four_gx, minus_four_gy, 18, 4);
+        assertEq(testX, 42);
+        // Test that the complete method handles this case gracefully
+        uint256 X = FCL.ecZZ_mulmuladd_S_asm(minus_four_gx, minus_four_gy, 18, 4);
+        (uint256 t1, ) = _goEcdsaScalarMult(2);
+        assertEq(t1, X);
     }
 
     function ecZZAddN(uint256 X, uint256 Y, uint256 zz, uint256 zzz, uint256 T1, uint256 T2)
@@ -187,7 +283,7 @@ contract FCLTest is Test {
 
                 T4 := mulmod(T2, T2, p) //PP
                 let TT1 := mulmod(T4, T2, p) //PPP, this one could be spared, but adding this register spare gas
-                zz := mulmod(zz, T4, p)
+                zz := mulmod(zz, T4, p) //ZZ1 
                 zzz := mulmod(zzz, TT1, p) //zz3=V*ZZ1
                 let TT2 := mulmod(X, T4, p)
                 T4 := addmod(addmod(mulmod(y2, y2, p), sub(p, TT1), p), mulmod(minus_2, TT2, p), p)
@@ -199,6 +295,267 @@ contract FCLTest is Test {
         return (X, Y, zz, zzz);
     }
 
+    // from FCL.sol lines 167-176
+    function ecZZDbl_inline1(uint256 X, uint256 Y, uint256 zz, uint256 zzz)
+        internal
+        pure
+        returns (uint256, uint256) {
+            uint256 p = FCL.p;
+            uint256 minus_2 = FCL.minus_2;
+            uint256 T1;
+            uint256 T2;
+            uint256 T3;
+            uint256 T4;
+            assembly {
+                // inlined EcZZ_Dbl 
+                T1 := mulmod(2, Y, p) //U = 2*Y1, y free
+                T2 := mulmod(T1, T1, p) // V=U^2
+                T3 := mulmod(X, T2, p) // S = X1*V
+                T1 := mulmod(T1, T2, p) // W=UV
+                T4 := mulmod(3, mulmod(addmod(X, sub(p, zz), p), addmod(X, zz, p), p), p) //M=3*(X1-ZZ1)*(X1+ZZ1)
+                zzz := mulmod(T1, zzz, p) //zzz3=W*zzz1
+                zz := mulmod(T2, zz, p) //zz3=V*ZZ1, V free
+
+                X := addmod(mulmod(T4, T4, p), mulmod(minus_2, T3, p), p) //X3=M^2-2S
+                T2 := mulmod(T4, addmod(X, sub(p, T3), p), p) //-M(S-X3)=M(X3-S)
+                Y := addmod(mulmod(T1, Y, p), T2, p) //-Y3= W*Y1-M(S-X3), we replace Y by -Y to avoid a sub in ecAdd
+            }
+            return (X, Y);
+    }
+
+    // from FCL.sol lines 217 - 231
+    function ecZZDbl_inline2(uint256 X, uint256 Y, uint256 zz, uint256 zzz)
+        internal
+        pure
+        returns (uint256, uint256) {
+            uint256 p = FCL.p;
+            uint256 minus_2 = FCL.minus_2;
+            uint256 T1;
+            uint256 T2;
+            uint256 T3;
+            uint256 T4;
+            // set y2 = 0 since this is only called in conditiones when iszero(y2) == True
+            uint256 y2 = 0;
+            assembly {
+                T1 := mulmod(minus_2, Y, p) //U = 2*Y1, y free
+                T2 := mulmod(T1, T1, p) // V=U^2
+                T3 := mulmod(X, T2, p) // S = X1*V
+
+                T1 := mulmod(T1, T2, p) // W=UV
+                y2 := mulmod(addmod(X, zz, p), addmod(X, sub(p, zz), p), p) //(X-ZZ)(X+ZZ)
+                T4 := mulmod(3, y2, p) //M=3*(X-ZZ)(X+ZZ)
+
+                zzz := mulmod(T1, zzz, p) //zzz3=W*zzz1
+                zz := mulmod(T2, zz, p) //zz3=V*ZZ1, V free
+
+                X := addmod(mulmod(T4, T4, p), mulmod(minus_2, T3, p), p) //X3=M^2-2S
+                T2 := mulmod(T4, addmod(T3, sub(p, X), p), p) //M(S-X3)
+
+                Y := addmod(T2, mulmod(T1, Y, p), p) //Y3= M(S-X3)-W*Y1
+            }
+            return (X, Y);
+    }
+
+    // from FCL.sol lines 237 - 243
+    function eczzAddn_inline(uint256 X, uint256 Y, uint256 zz, uint256 zzz, uint256 T1, uint256 T2) 
+        internal 
+        pure 
+        returns (uint256, uint256, uint256, uint256)
+    {
+        uint256 p = FCL.p;
+        uint256 minus_2 = FCL.minus_2;
+
+        uint256 T4;
+
+        assembly {
+            // this line is commented out in the actual implementation, but the test fails without it
+            Y := sub(p, Y)
+
+            let y2 := addmod(mulmod(T2, zzz, p), Y, p) //R
+            T2 := addmod(mulmod(T1, zz, p), sub(p, X), p) //P
+            T4 := mulmod(T2, T2, p) //PP
+            let TT1 := mulmod(T4, T2, p) //PPP, this one could be spared, but adding this register spare gas
+            zz := mulmod(zz, T4, p)
+            zzz := mulmod(zzz, TT1, p) //zz3=V*ZZ1
+            let TT2 := mulmod(X, T4, p)
+            T4 := addmod(addmod(mulmod(y2, y2, p), sub(p, TT1), p), mulmod(minus_2, TT2, p), p)
+            Y := addmod(mulmod(addmod(TT2, sub(p, T4), p), y2, p), mulmod(Y, TT1, p), p)
+
+            X := T4
+        }
+        return (X, Y, zz, zzz);
+    }
+
+    // from FCL.sol lines 248 - 267
+    function eczzMulmod_inline(uint256 X, uint256 zz) 
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 p = FCL.p;
+        uint256 minus_2 = FCL.minus_2;
+        assembly {
+                let T := mload(0x40)
+                mstore(add(T, 0x60), zz)
+                //(X,Y)=ecZZ_SetAff(X,Y,zz, zzz);
+                //T[0] = inverseModp_Hard(T[0], p); //1/zzz, inline modular inversion using precompile:
+                // Define length of base, exponent and modulus. 0x20 == 32 bytes
+                mstore(T, 0x20)
+                mstore(add(T, 0x20), 0x20)
+                mstore(add(T, 0x40), 0x20)
+                // Define variables base, exponent and modulus
+                //mstore(add(pointer, 0x60), u)
+                mstore(add(T, 0x80), minus_2)
+                mstore(add(T, 0xa0), p)
+
+                // Call the precompiled contract 0x05 = ModExp
+                if iszero(staticcall(not(0), 0x05, T, 0xc0, T, 0x20)) { revert(0, 0) }
+
+                //Y:=mulmod(Y,zzz,p)//Y/zzz
+                //zz :=mulmod(zz, mload(T),p) //1/z
+                //zz:= mulmod(zz,zz,p) //1/zz
+                X := mulmod(X, mload(T), p) //X/zz
+        }
+        return X;
+    }
+
+    function eczz_mulmuladd_S_truncated_inline(
+        uint256 Q0,
+        uint256 Q1, //affine rep for input point Q
+        uint256 scalar_u,
+        uint256 scalar_v
+    ) internal view returns (uint256) {
+        uint256 p = FCL.p;
+        uint256 gx = FCL.gx;
+        uint256 gy = FCL.gy;
+        uint256 minus_1 = FCL.minus_1;
+        uint256 minus_2 = FCL.minus_2;
+        uint256 index = 255;
+        uint256 zz;
+        uint256 zzz;
+        uint256 Y;
+        uint256 X;
+        uint256 inConditional;
+
+        unchecked {
+            (uint256 H0, uint256 H1) = FCL.ecAff_add(gx, FCL.gy, Q0, Q1); 
+            if((H0==0)&&(H1==0))//handling Q=-G
+            {
+                scalar_u=addmod(scalar_u, FCL.n-scalar_v, FCL.n);
+                scalar_v=0;
+            }
+            assembly {
+                for { let T4 := add(shl(1, and(shr(index, scalar_v), 1)), and(shr(index, scalar_u), 1)) } eq(T4, 0) {
+                    index := sub(index, 1)
+                    T4 := add(shl(1, and(shr(index, scalar_v), 1)), and(shr(index, scalar_u), 1))
+                } {}
+                zz := add(shl(1, and(shr(index, scalar_v), 1)), and(shr(index, scalar_u), 1))
+
+                if eq(zz, 1) {
+                    X := gx
+                    Y := gy
+                }
+                if eq(zz, 2) {
+                    X := Q0
+                    Y := Q1
+                }
+                if eq(zz, 3) {
+                    X := H0
+                    Y := H1
+                }
+
+                index := sub(index, 1)
+                zz := 1
+                zzz := 1
+
+                for {} gt(minus_1, index) { index := sub(index, 1) } {
+                    // inlined EcZZ_Dbl
+                    let T1 := mulmod(2, Y, p) //U = 2*Y1, y free
+                    let T2 := mulmod(T1, T1, p) // V=U^2
+                    let T3 := mulmod(X, T2, p) // S = X1*V
+                    T1 := mulmod(T1, T2, p) // W=UV
+                    let T4 := mulmod(3, mulmod(addmod(X, sub(p, zz), p), addmod(X, zz, p), p), p) //M=3*(X1-ZZ1)*(X1+ZZ1)
+                    zzz := mulmod(T1, zzz, p) //zzz3=W*zzz1
+                    zz := mulmod(T2, zz, p) //zz3=V*ZZ1, V free
+
+                    X := addmod(mulmod(T4, T4, p), mulmod(minus_2, T3, p), p) //X3=M^2-2S
+                    T2 := mulmod(T4, addmod(X, sub(p, T3), p), p) //-M(S-X3)=M(X3-S)
+                    Y := addmod(mulmod(T1, Y, p), T2, p) //-Y3= W*Y1-M(S-X3), we replace Y by -Y to avoid a sub in ecAdd
+                    {
+                        //value of dibit
+                        T4 := add(shl(1, and(shr(index, scalar_v), 1)), and(shr(index, scalar_u), 1))
+
+                        if iszero(T4) {
+                            Y := sub(p, Y) //restore the -Y inversion
+                            continue
+                        } // if T4!=0
+
+                        if eq(T4, 1) {
+                            T1 := gx
+                            T2 := gy
+                        }
+                        if eq(T4, 2) {
+                            T1 := Q0
+                            T2 := Q1
+                        }
+                        if eq(T4, 3) {
+                            T1 := H0
+                            T2 := H1
+                        }
+                        if iszero(zz) {
+                            X := T1
+                            Y := T2
+                            zz := 1
+                            zzz := 1
+                            inConditional := 42
+                            break
+                        }
+                        // inlined EcZZ_AddN
+
+                        //T3:=sub(p, Y)
+                        //T3:=Y
+                        let y2 := addmod(mulmod(T2, zzz, p), Y, p) //R
+                        T2 := addmod(mulmod(T1, zz, p), sub(p, X), p) //P
+
+                        //special extremely rare case accumulator where EcAdd is replaced by EcDbl, no need to optimize this
+                        //todo : construct edge vector case
+                        if iszero(y2) {
+                            if iszero(T2) {
+                                T1 := mulmod(minus_2, Y, p) //U = 2*Y1, y free
+                                T2 := mulmod(T1, T1, p) // V=U^2
+                                T3 := mulmod(X, T2, p) // S = X1*V
+
+                                T1 := mulmod(T1, T2, p) // W=UV
+                                y2 := mulmod(addmod(X, zz, p), addmod(X, sub(p, zz), p), p) //(X-ZZ)(X+ZZ)
+                                T4 := mulmod(3, y2, p) //M=3*(X-ZZ)(X+ZZ)
+
+                                zzz := mulmod(T1, zzz, p) //zzz3=W*zzz1
+                                zz := mulmod(T2, zz, p) //zz3=V*ZZ1, V free
+
+                                X := addmod(mulmod(T4, T4, p), mulmod(minus_2, T3, p), p) //X3=M^2-2S
+                                T2 := mulmod(T4, addmod(T3, sub(p, X), p), p) //M(S-X3)
+
+                                Y := addmod(T2, mulmod(T1, Y, p), p) //Y3= M(S-X3)-W*Y1
+
+                                continue
+                            }
+                        }
+
+                        T4 := mulmod(T2, T2, p) //PP
+                        let TT1 := mulmod(T4, T2, p) //PPP, this one could be spared, but adding this register spare gas
+                        zz := mulmod(zz, T4, p)
+                        zzz := mulmod(zzz, TT1, p) //zz3=V*ZZ1
+                        let TT2 := mulmod(X, T4, p)
+                        T4 := addmod(addmod(mulmod(y2, y2, p), sub(p, TT1), p), mulmod(minus_2, TT2, p), p)
+                        Y := addmod(mulmod(addmod(TT2, sub(p, T4), p), y2, p), mulmod(Y, TT1, p), p)
+
+                        X := T4
+                    }
+                } //end loop
+            }
+        }
+        return inConditional;
+    }
     //     function _inlinedAdd(uint T1, uint T2, uint X, uint Y, uint zz, uint zzz, uint p) internal returns (uint newX, uint newY, uint newZZ, uint newZZZ) {
     //     assembly {
     //         // Start of the assembly block
@@ -407,6 +764,13 @@ contract FCLTest is Test {
         return abi.decode(vm.ffi(inputs), (uint256, uint256));
     }
 
+    function _goEcdsaScalarMult(uint256 k) internal returns (uint256, uint256) {
+        string [] memory inputs = new string[](2);
+        inputs[0] = "test/../go/scalar/scalar";
+        inputs[1] = vm.toString(k);
+        return abi.decode(vm.ffi(inputs), (uint256, uint256));
+    }
+
     // function _power(uint256 a, uint256 b, uint256 p) internal pure returns (uint256) {
     //     uint256 x = a;
     //     uint256 t = 1;
@@ -430,7 +794,7 @@ contract FCLTest is Test {
 
     function _convertXY(uint256 x, uint256 y, uint256 z)
         internal
-        view
+        pure
         returns (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz)
     {
         zz = mulmod(z, z, FCL.p);
