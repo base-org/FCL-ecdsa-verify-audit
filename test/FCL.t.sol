@@ -113,20 +113,6 @@ contract FCLTest is Test {
         assertEq(xx, go_x);
         assertEq(yy, go_y);
     }
-
-    // validator for go implementation of Scalar Mult
-    // function test_goScalarMult(uint256 k1, uint256 k2, uint256 k3) public {
-    //     vm.assume(k1 >0 && k2>0 && k1 != k2);
-    //     k1 = k1 % FCL.p;
-    //     k2 = k2 % FCL.p;
-    //     k3 = (k1 + k2) % FCL.p;
-    //     (uint256 x1, uint256 y1) = _goEcdsaScalarMult(k1);
-    //     (uint256 x2, uint256 y2) = _goEcdsaScalarMult(k2);
-    //     (uint256 x3, uint256 y3) = _goEcdsaScalarMult(k3);
-    //     (uint256 x3Prime, uint256 y3Prime) = FCL.ecAff_add(x1, y1, x2, y2);
-    //     assertEq(x3, x3Prime);
-    //     assertEq(y3, y3Prime);
-    // }
     
     // test 2a
     function test_ecZZ_mulmuladd_S_asm(uint256 pk, uint256 pk2, uint256 z) public {
@@ -138,7 +124,6 @@ contract FCLTest is Test {
         (uint256 xPrime, uint256 yPrime, uint256 zz, uint256 zzz) = _convertXY(x, y, z);
         // verify 205-253  =  = ecAff_add(x', y', zz, zzz, t1, t2)
         (uint256 i_x, uint256 i_y, uint256 i_t1, uint256 i_t2) = ecZZAddN(xPrime, yPrime, zz, zzz, t1, t2);
-        // console2.log(i_x);
         (uint256 p0, uint256 p1, uint256 p2, uint256 p3) = FCL.ecZZ_AddN(xPrime, yPrime, zz, zzz, t1, t2);
         assertEq(p0, i_x);
         assertEq(p1, i_y);
