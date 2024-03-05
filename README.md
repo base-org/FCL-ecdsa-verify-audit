@@ -34,8 +34,9 @@ The scope of the audit is restricted only to methods used in the context of `ecd
     }
 ```
 
-As such, only the following files were in-scope for this exercise: 
+As such, only the following files were in-scope for this exercise:
 - [FCL_ecdsa.sol](https://github.com/rdubois-crypto/FreshCryptoLib/blob/master/solidity/src/FCL_ecdsa.sol)
+- [FCL_ecdsa_utils.sol](https://github.com/rdubois-crypto/FreshCryptoLib/blob/master/solidity/src/FCL_ecdsa_utils.sol)
 - [FCL_elliptic.sol](https://github.com/rdubois-crypto/FreshCryptoLib/blob/master/solidity/src/FCL_elliptic.sol)
 
 
