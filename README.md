@@ -1,7 +1,7 @@
 > [!IMPORTANT]  
 > This audit's scope is extremely narrow. Ensure use of this audit as a reference is appropriately scoped.
 
-## FreshCryptoLib Audit
+## FreshCryptoLib ecdsa_verify Audit
 
 **This repo contains the set of tests used to audit the FCL ecdsa sepc256r1 verify method implemented by FreshCryptoLib [here](https://github.com/rdubois-crypto/FreshCryptoLib/tree/master/solidity).**
 
