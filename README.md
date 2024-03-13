@@ -50,7 +50,7 @@ The test suite was conducted in three major parts:
 
 ## Results
 
-_TODO: link to report_
+Official reports can be found in the [docs](https://github.com/base-org/FCL-ecdsa-verify-audit/tree/main/docs). 
 
 Through our testing, we determined there were two issues with the implementation. Both were addressed and fixed in the subject libraries. The PRs for these changes can be found [here](https://github.com/rdubois-crypto/FreshCryptoLib/pull/60) and [here](https://github.com/rdubois-crypto/FreshCryptoLib/pull/61).
 
