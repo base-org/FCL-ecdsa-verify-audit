@@ -76,7 +76,7 @@ library FCL {
      * @dev Check if a point in affine coordinates is on the curve (reject Neutral that is indeed on the curve).
      */
     function ecAff_isOnCurve(uint256 x, uint256 y) internal pure returns (bool) {
-        if (((0 == x) && (0 == y)) || x == p || y == p) {
+        if (((0 == x) && (0 == y)) || (x == p && y == p)) {
             return false;
         }
         unchecked {
@@ -136,6 +136,7 @@ library FCL {
             ) {
                 scalar_u = addmod(scalar_u, n - scalar_v, n);
                 scalar_v = 0;
+                if (scalar_u == 0 && scalar_v == 0) return 0;
             }
             assembly {
                 for { let T4 := add(shl(1, and(shr(index, scalar_v), 1)), and(shr(index, scalar_u), 1)) } eq(T4, 0) {
